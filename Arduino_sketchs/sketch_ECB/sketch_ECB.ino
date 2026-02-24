@@ -1,5 +1,6 @@
 #include "aes.hpp"
 
+#define TRIGGER_PIN 13 // Pin set for activation of the algorithm
 struct AES_ctx ctx;
 
 // Your 16-byte (128-bit) key
@@ -13,17 +14,24 @@ uint8_t plaintext[16] = {0x6b, 0xc1, 0xbe, 0xe2, 0x2e, 0x40, 0x9f, 0x96,
 uint8_t buffer[16];
 
 void setup() {
+
   Serial.begin(9600);
-  while (!Serial);
+  //while (!Serial);
   
   // Copy plaintext to buffer (encryption works in-place)
   memcpy(buffer, plaintext, 16);
   
   Serial.println("Plaintext:");
   printHex(buffer, 16);
-  
+
   // Initialize AES context with key
   AES_init_ctx(&ctx, key);
+
+  // Trigger right before encryption step  
+  pinMode(TRIGGER_PIN, OUTPUT);
+  delay(2000);
+  digitalWrite(TRIGGER_PIN, HIGH); 
+  delay(10);
   
   // Encrypt (modifies buffer in-place)
   AES_ECB_encrypt(&ctx, buffer);
