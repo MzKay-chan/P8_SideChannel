@@ -6,5 +6,4 @@ traces/
 *.pyc
 **/images
 *.log
-*.txt
 *.png
