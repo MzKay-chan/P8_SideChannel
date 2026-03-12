@@ -35,6 +35,8 @@ void loop() {
             input_password[index++] = tempchr;
         }
     }
+    digitalWrite(triggerPin, HIGH);
+    
     Serial.write("Password received");
     // Null terminate and strip non-characters
     input_password[index] = '\0';
@@ -47,17 +49,18 @@ void loop() {
 
     // replace the String comparison with this
 
-    for (int i = 0; i < known_passwordstr.length(); i++) {
-        if (input_passwordstr[i] != known_passwordstr[i]) return false;  // early exit!
-    }
-    return true;
-
-
-    //if (input_passwordstr == known_passwordstr) {
-    //    Serial.write("Password OK\n");
-    //} else {
-    //    // Delay up to 500ms randomly
-    //    delay(random(500));
-    //    Serial.write("Password Bad\n");
+    //for (int i = 0; i < known_passwordstr.length(); i++) {
+    //    if (input_passwordstr[i] != known_passwordstr[i]) return false;  // early exit!
     //}
+    //return true;
+
+
+
+    if (input_passwordstr == known_passwordstr) {
+        Serial.write("Password OK\n");
+    } else {
+        // Delay up to 500ms randomly
+        delay(random(500));
+        Serial.write("Password Bad\n");
+    }
 }
