@@ -1,7 +1,6 @@
 Results/
 Papers/
 Images/
-traces/
 **/__pycache__
 *.pyc
 **/images
