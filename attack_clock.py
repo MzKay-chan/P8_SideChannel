@@ -188,7 +188,7 @@ try:
                      for s in range(len(buffer))]
         plt.figure()
         plt.xlim(0, 0.022)
-        plt.ylim(3.9, 4.5)
+        plt.ylim(3.3, 4)
         plt.plot(time_axis, buffer,
                  color='#2196F3', linewidth=0.5, alpha=0.8)
         plt.title(f'Post-trigger trace {i}')
