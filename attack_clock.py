@@ -88,15 +88,15 @@ try:
 
     # 1. fully random passwords (baseline noise)
     for _ in range(50):
-        passwords.append(''.join(random.choices(string.ascii_lowercase,
-                                                k=random.randint(1, 19))))
+        passwords.append(''.join(random.choices(string.ascii_lowercase, k=11)))
 
     # 2. passwords with increasing correct prefix
     for length in range(1, len(known)):
         for _ in range(5):  # 5 traces per prefix length
             prefix = known[:length]
+            space = 11 - len(prefix)
             suffix = ''.join(random.choices(string.ascii_lowercase,
-                                            k=random.randint(0, 5)))
+                                            k=space))
             passwords.append(prefix + suffix)
 
     random.shuffle(passwords)

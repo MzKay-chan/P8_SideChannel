@@ -15,25 +15,23 @@ try:
     # connect to the device
     ser = serial.Serial('/dev/ttyACM0', baudrate=9600, timeout=1)
     
-    #For testing a simple set of password
-    passwords = ["iAAAAAAAAAA", "ilAAAAAAAAA"]
+    ##For testing a simple set of password
+    #passwords = ["iAAAAAAAAAA", "ilAAAAAAAAA"]
 
     #Generate all the passwords that we want to test
-    # passwords = []
-    #
-    # # 1. fully random passwords (baseline noise)
-    # for _ in range(50):
-    #     passwords.append(''.join(random.choices(string.ascii_lowercase, k=random.randint(1, 19))))
-    #
-    # # 2. passwords with increasing correct prefix
-    # for length in range(1, len(known)+1):
-    #     for _ in range(5):  # 5 traces per prefix length
-    #         prefix = known[:length]
-    #         # add random suffix to keep length variable
-    #         suffix = ''.join(random.choices(string.ascii_lowercase, k=random.randint(0, 5)))
-    #         passwords.append(prefix + suffix)
-    #
-    # random.shuffle(passwords)  # shuffle so pattern isn't time-dependent
+    passwords = []
+
+    for _ in range(50):
+        passwords.append(''.join(random.choices(string.ascii_lowercase, k=random.randint(1, 19))))
+
+    for length in range(1, len(known)+1):
+        for _ in range(5):  # 5 traces per prefix length
+            prefix = known[:length]
+            # add random suffix to keep length variable
+            suffix = ''.join(random.choices(string.ascii_lowercase, k=random.randint(0, 5)))
+            passwords.append(prefix + suffix)
+
+    random.shuffle(passwords)  # shuffle so pattern isn't time-dependent
 
     for i in range(len(passwords)):
         #Open everything
