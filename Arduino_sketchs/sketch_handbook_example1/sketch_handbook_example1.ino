@@ -1,5 +1,5 @@
 // Trigger is Pin 2
-int triggerPin = 2;
+int triggerPin = 3;
 
 String known_passwordstr = String("ilovecheese");
 String input_passwordstr;
@@ -25,20 +25,28 @@ void loop() {
     digitalWrite(triggerPin, LOW);
     delay(250);
 
-    Serial.flush();
-    Serial.write("Enter Password:");
-
+    
+    int counter = 0;
     // wait for last character
     while ((tempchr != '\n') && (index < 19)) {
+        counter++;
+        if (counter > 10000) {
+            Serial.println("Enter Password:");
+            counter = 0;
+        }
+
         if (Serial.available() > 0) {
             tempchr = Serial.read();
+         
             input_password[index++] = tempchr;
+            counter = 0;
         }
     }
-    digitalWrite(triggerPin, HIGH);
+    
     
     Serial.write("Password received");
     // Null terminate and strip non-characters
+    
     input_password[index] = '\0';
     input_passwordstr = String(input_password);
     input_passwordstr.trim();
@@ -54,7 +62,7 @@ void loop() {
     //}
     //return true;
 
-
+    digitalWrite(triggerPin, HIGH);
 
     if (input_passwordstr == known_passwordstr) {
         Serial.write("Password OK\n");
