@@ -5,5 +5,5 @@ Images/
 *.pyc
 **/images
 *.log
-*.txt
+
 *.png
