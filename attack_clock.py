@@ -81,7 +81,7 @@ try:
 
     # ── Password list ────────────────────────────────────────────────────────
     # Simple test set — uncomment the generator block below for a full campaign
-    # passwords = ["iAAAAAAAAAA", "ilAAAAAAAAA"]
+    # passwords = ["iAAAAAAAAAA", "ilAAAAAAAAA", "iloAAAAAAAA", "iloveAAAAAA", "iloveAAAAAA", "iloveAAAAAA", "ilovecheese", "ilovecheese"]
 
     known = "ilovecheese"   # ← set your known prefix here when doing a real run
     passwords = []
@@ -100,10 +100,10 @@ try:
             passwords.append(prefix + suffix)
 
     random.shuffle(passwords)
-
+    #
     # ── Main capture loop ────────────────────────────────────────────────────
     for i, password in enumerate(passwords):
-
+        ser.reset_input_buffer()
         print(f"\n[{i+1}/{len(passwords)}] password: {password}")
 
         # Open AD2 — we do this per-iteration (same as before) so the scope
