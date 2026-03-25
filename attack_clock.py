@@ -72,12 +72,12 @@ try:
     dwf = load_dwf()
 
     # Open serial connection to Arduino
-    ser = serial.Serial('/dev/ttyACM0', baudrate=9600, timeout=1)
+    ser = serial.Serial('COM3', baudrate=9600, timeout=1)
     sleep(2)
-    ser.reset_input_buffer()
-    ser.write(b'\n')
-    sleep(0.1)
-    ser.reset_input_buffer()
+    # ser.reset_input_buffer()
+    # ser.write(b'\n')
+    # sleep(0.1)
+    # ser.reset_input_buffer()
 
     # ── Password list ────────────────────────────────────────────────────────
     # Simple test set — uncomment the generator block below for a full campaign
@@ -86,24 +86,26 @@ try:
     known = "ilovecheese"   # ← set your known prefix here when doing a real run
     passwords = []
 
-    # 1. fully random passwords (baseline noise)
-    for _ in range(50):
-        passwords.append(''.join(random.choices(string.ascii_lowercase, k=11)))
+    for i in range(len(known) + 1):
+        passwords += ([known[:i+1] + 'A' * (len(known) - i)] * 5) # 5 traces per prefix length
 
-    # 2. passwords with increasing correct prefix
-    for length in range(1, len(known)):
-        for _ in range(5):  # 5 traces per prefix length
-            prefix = known[:length]
-            space = 11 - len(prefix)
-            suffix = ''.join(random.choices(string.ascii_lowercase,
-                                            k=space))
-            passwords.append(prefix + suffix)
+    # # 1. fully random passwords (baseline noise)
+    # for _ in range(50):
+    #     passwords.append(''.join(random.choices(string.ascii_lowercase, k=11)))
+    # # 2. passwords with increasing correct prefix
+    # for length in range(1, len(known)):
+    #     for _ in range(5):  # 5 traces per prefix length
+    #         prefix = known[:length]
+    #         space = 11 - len(prefix)
+    #         suffix = ''.join(random.choices(string.ascii_lowercase,
+    #                                         k=space))
+    #         passwords.append(prefix + suffix)
 
-    random.shuffle(passwords)
-    #
+    # random.shuffle(passwords)
+
     # ── Main capture loop ────────────────────────────────────────────────────
     for i, password in enumerate(passwords):
-        ser.reset_input_buffer()
+        # ser.reset_input_buffer()
         print(f"\n[{i+1}/{len(passwords)}] password: {password}")
 
         # Open AD2 — we do this per-iteration (same as before) so the scope
@@ -136,11 +138,14 @@ try:
 
         # ── Wait for Arduino prompt ──────────────────────────────────────────
         print("  waiting for Arduino prompt …")
+        response = ""
         while True:
-            response = ser.read_until(b"Enter Password:")
-            if b"Enter Password:" in response:
-                print("  Arduino ready")
+            response += ser.read().decode(errors='ignore')
+            print('.' + response)
+            if "Enter Password:" in response:
+                print("\n  Arduino ready")
                 break
+        # ser.reset_input_buffer()
 
         # ── Arm scope in background thread ───────────────────────────────────
         buffer_holder = [None]
@@ -154,11 +159,14 @@ try:
         # Short arm delay — kept at 0.1 s (was 0.5 s) since the scope is
         # already configured above; this just lets the thread enter the
         # blocking record() call before we send the password.
-        sleep(0.1)
+        # sleep(0.1)
 
         # ── Send password & collect trace ────────────────────────────────────
         ser.write((password + '\n').encode())
+    # while True:
         arduino_resp = ser.readline()
+    #     if "Password received" in arduino_resp:
+    #         break
         print(f"  Arduino: {arduino_resp.strip()}")
 
         t.join(timeout=5)
@@ -187,8 +195,8 @@ try:
         time_axis = [s * 1e3 / scope.data.sampling_frequency
                      for s in range(len(buffer))]
         plt.figure()
-        plt.xlim(0, 0.022)
-        plt.ylim(3.3, 4)
+        # plt.xlim(0, 0.022)
+        # plt.ylim(3.3, 4)
         plt.plot(time_axis, buffer,
                  color='#2196F3', linewidth=0.5, alpha=0.8)
         plt.title(f'Post-trigger trace {i}')
@@ -203,7 +211,7 @@ try:
         device.close(device_data)
 
         buffer = None
-        sleep(0.5)   # reduced from 1 s — clock restart gives the chip time
+        sleep(1)   # reduced from 1 s — clock restart gives the chip time
 
     print("\n[done] all traces captured")
 
