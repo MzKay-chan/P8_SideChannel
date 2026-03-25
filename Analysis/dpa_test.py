@@ -27,13 +27,7 @@ def prefix_match(pwd, known):
     return count
 matches = [prefix_match(p, known) for p in passwords]
 
-# see how many passwords had the wrong length (should be 0 for this implementation)
-wrong_length_counter = 0
-for p in passwords:
-    if len(p) != len(known):
-        wrong_length_counter += 1
-print(f'{wrong_length_counter} passwords had wrong length')
-
+# print every password and how many chars it matches
 for p in passwords:
     print(f'{p} matches {prefix_match(p, known):>2} chars')
 
@@ -42,25 +36,32 @@ for m in sorted(set(matches)):
     count = matches.count(m)
     print(f'{count:>2} passwords with {m:>2} chars match')
 
-# get the average trace for each match length and plot it
-plt.figure(figsize=(20, 5))
-for m in sorted(set(matches)):
-    group = traces[[i for i, x in enumerate(matches) if x == m]]
-    avg = np.mean(group, axis=0)
-    plt.plot(avg, linewidth=0.8, alpha=0.7, label=f'{m} chars match')
-plt.legend(fontsize=7)
-plt.title('Average trace per prefix match length')
-plt.savefig('spa_average.png', dpi=150)
+# see how many passwords had the wrong length (should be 0 for this implementation)
+wrong_length_counter = 0
+for p in passwords:
+    if len(p) != len(known):
+        wrong_length_counter += 1
+print(f'{wrong_length_counter} passwords had wrong length')
 
-# plot all the traces with 'x' matches
-x = 2
-run_count = 0
-for i, m in enumerate(matches):
-    if m == x:
-        plt.figure(figsize=(20, 5))
-        plt.plot(traces[i], linewidth=0.5)
-        plt.title(f'Trace with {x} chars match: {passwords[i]}')
-        plt.show()
+# # get the average trace for each match length and plot it
+# plt.figure(figsize=(20, 5))
+# for m in sorted(set(matches)):
+#     group = traces[[i for i, x in enumerate(matches) if x == m]]
+#     avg = np.mean(group, axis=0)
+#     plt.plot(avg, linewidth=0.8, alpha=0.7, label=f'{m} chars match')
+# plt.legend(fontsize=7)
+# plt.title('Average trace per prefix match length')
+# plt.savefig('spa_average.png', dpi=150)
+
+# # plot all the traces with 'x' matches
+# x = 2
+# run_count = 0
+# for i, m in enumerate(matches):
+#     if m == x:
+#         plt.figure(figsize=(20, 5))
+#         plt.plot(traces[i], linewidth=0.5)
+#         plt.title(f'Trace with {x} chars match: {passwords[i]}')
+#         plt.show()
 
 # split the traces into groups based on the number of matches
 group_0_mean = np.mean(traces[[i for i, x in enumerate(matches) if x == 0]], axis=0)
@@ -71,7 +72,17 @@ for m in sorted(set(matches)):
     grouped_traces.append(group)
 group_means = [np.mean(group, axis=0) for group in grouped_traces]
 
-display_graph = 0
+# split the traces into groups based on the first character
+char_grouped_traces = []
+for c in sorted(set(p[0] for p in passwords)):
+    group = traces[[i for i, p in enumerate(passwords) if p[0] == c]]
+    char_grouped_traces.append(group)
+char_grouped_means = [np.mean(group, axis=0) for group in char_grouped_traces]
+
+mean_all = np.mean(traces, axis=0)
+
+# choose which graph to display
+display_graph = 3
 match display_graph:
     case 1:
         diff = group_1_mean - group_0_mean
@@ -115,6 +126,41 @@ match display_graph:
         plt.tight_layout()
         plt.savefig('dpa_diff.png', dpi=150)
         plt.show()
+    case 3:
+        # Create a figure with 2 subplots stacked vertically
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(20, 10))
+
+        # --- TOP GRAPH: Individual group means ---
+
+        ax1.plot(char_grouped_means[8], color='red', linewidth=0.5, label='i match')
+        ax1.plot(char_grouped_means[9], color='green', linewidth=0.5, label='j match')
+        ax1.plot(char_grouped_means[10], color='blue', linewidth=0.5, label='k match')
+        ax1.axhline(0, color='black', linewidth=0.5)
+        ax1.set_title('DPA: Mean Power Consumption by Group', fontsize=14)
+        ax1.set_ylabel('Power (mW or arbitrary units)')
+        ax1.legend(fontsize=7)
+        ax1.grid(True, alpha=0.3)
+        ax1.set_ylim(bottom=3.55, top=3.65)
+
+        # --- BOTTOM GRAPH: Difference of means (your original code) ---
+        diff1 = char_grouped_means[8] - mean_all
+        diff2 = char_grouped_means[9] - mean_all
+        diff3 = char_grouped_means[10] - mean_all
+
+        ax2.plot(diff1, color='red', linewidth=0.5, label='1 match - 0 match')
+        ax2.plot(diff2, color='green', linewidth=0.5, label='2 matches - 0 match')
+        ax2.plot(diff3, color='blue', linewidth=0.5, label='3 matches - 0 match')
+        ax2.axhline(0, color='black', linewidth=0.5)
+        ax2.set_title('DPA: Difference of Means', fontsize=14)
+        ax2.set_ylabel('Power Difference')
+        ax2.set_xlabel('Time (samples)')
+        ax2.legend(fontsize=7)
+        ax2.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        plt.savefig('dpa_diff.png', dpi=150)
+        plt.show()
+    
 
 
 # plt.figure(figsize=(20, 5))
