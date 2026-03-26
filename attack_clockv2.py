@@ -49,80 +49,80 @@ def clock_stop(dwf, hdwf):
     dwf.FDwfAnalogOutConfigure(hdwf, c_int(0), c_bool(False))
     print("[clock] W1 stopped")
 
-def clock_glitch(dwf, hdwf, glitch_freq=100e6, duration_s=1e-6):
+def generate_password_for_position(position, hypothesis_char, length, charset):
     """
-    Momentary frequency spike — basic clock glitch.
-    glitch_freq : frequency to spike to (Hz)
-    duration_s  : how long to hold the spike (seconds)
+    Randomize all positions except the one being tested
     """
-    ch   = c_int(0)
-    node = c_int(0)
-    dwf.FDwfAnalogOutNodeFrequencySet(hdwf, ch, node, c_double(glitch_freq))
-    dwf.FDwfAnalogOutConfigure(hdwf, ch, c_bool(True))
-    sleep(duration_s)
-    dwf.FDwfAnalogOutNodeFrequencySet(hdwf, ch, node, c_double(CLOCK_FREQ_HZ))
-    dwf.FDwfAnalogOutConfigure(hdwf, ch, c_bool(True))
+    import random
+    
+    password = [random.choice(charset) for _ in range(length)]
+    password[position] = hypothesis_char  # Only this is fixed
+    
+    return ''.join(password)
 
-# ─────────────────────────────────────────────────────────────────────────────
+def generate_dpa_passwords(target_length, charset_choice, num_traces_per_char):
+    """
+    Generate passwords for DPA attack on string comparison
+    
+    Args:
+        target_length: Length of the secret password
+        charset: Possible characters (e.g., string.printable, 'a-zA-Z0-9')
+        num_traces_per_char: How many traces to collect per character hypothesis
+    
+    Returns:
+        List of passwords to test
+    """
+    CHARSETS = {
+        1: 'abcdefghijklmnopqrstuvwxyz',
+        2: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+        3: '0123456789',
+        4: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+        5: string.printable,
+        6: 'ila'
+    }
+    charset = CHARSETS[charset_choice]
+
+    passwords = []
+    
+    testset = ''
+
+    # For each position in the password
+    for position in range(target_length):
+        # For each possible character at this position
+        for char in charset:
+            # Generate multiple traces with this character at this position
+            for trace_num in range(num_traces_per_char):
+                # Build password: known prefix + hypothesis char + random suffix
+                password = generate_password_for_position(position, char, target_length, charset)
+                passwords.append(password)
+    
+    return passwords
 
 try:
     os.makedirs('traces', exist_ok=True)
 
     # Load WaveForms DWF library (needed for clock control)
     dwf = load_dwf()
-
+    
     # Open serial connection to Arduino
-    ser = serial.Serial('COM3', baudrate=9600, timeout=1)
+    ser = serial.Serial('/dev/ttyACM0', baudrate=9600, timeout=1)
     sleep(2)
     ser.reset_input_buffer()
 
-    # ── Password list ────────────────────────────────────────────────────────
-    # Simple test set — uncomment the generator block below for a full campaign
-    passwords = ["iAAAAAAAAAA", "ilAAAAAAAAA", "iloAAAAAAAA", "iloveAAAAAA", "iloveAAAAAA", "iloveAAAAAA", "ilovecheese", "ilovecheese"]
-
-    #known = "ilovecheese"   # ← set your known prefix here when doing a real run
-    #passwords = []
-
-    #for i in range(len(known) + 1):
-        passwords += ([known[:i+1] + 'A' * (len(known) - i)] * 5) # 5 traces per prefix length
-
-    # # 1. fully random passwords (baseline noise)
-    # for _ in range(50):
-    #     passwords.append(''.join(random.choices(string.ascii_lowercase, k=11)))
-    # # 2. passwords with increasing correct prefix
-    # for length in range(1, len(known)):
-    #     for _ in range(5):  # 5 traces per prefix length
-    #         prefix = known[:length]
-    #         space = 11 - len(prefix)
-    #         suffix = ''.join(random.choices(string.ascii_lowercase,
-    #                                         k=space))
-    #         passwords.append(prefix + suffix)
-
-    # random.shuffle(passwords)
+    passwords = generate_dpa_passwords(11, 1, 8)
 
     #Opening device
+    device_data = device.open()
+    hdwf = device_data.handle
 
-
-
-
+    clock_start(dwf, hdwf)
+    print('Starting clock')
+    sleep(10)
 
     # ── Main capture loop ────────────────────────────────────────────────────
     for i, password in enumerate(passwords):
         # ser.reset_input_buffer()
         print(f"\n[{i+1}/{len(passwords)}] password: {password}")
-
-        # Open AD2 — we do this per-iteration (same as before) so the scope
-        # resets cleanly; clock is restarted each time too.
-        device_data = device.open()
-
-        # Grab the raw dwf handle so we can call wavegen directly
-        hdwf = device_data.handle   # WF_SDK exposes .handle as a c_int
-
-        # Start the clock on W1 → ATmega XTAL1 (pin 9)
-        clock_start(dwf, hdwf)
-
-        # Give the ATmega a moment to stabilise on the new clock
-        sleep(0.1)
 
         # Start oscilloscope
         scope.open(device_data,
@@ -139,7 +139,7 @@ try:
                       level=3,
                       timeout=3)
 
-        # ── Wait for Arduino prompt ──────────────────────────────────────────
+        # Wait for Arduino prompt
         print("  waiting for Arduino prompt …")
         response = ""
         while True:
@@ -148,9 +148,7 @@ try:
             if "Enter Password:" in response:
                 print("\n  Arduino ready")
                 break
-        # ser.reset_input_buffer()
 
-        # ── Arm scope in background thread ───────────────────────────────────
         buffer_holder = [None]
 
         def record():
@@ -158,30 +156,26 @@ try:
 
         t = threading.Thread(target=record)
         t.start()
+        sleep(0.1)
 
-        # Short arm delay — kept at 0.1 s (was 0.5 s) since the scope is
-        # already configured above; this just lets the thread enter the
-        # blocking record() call before we send the password.
-        # sleep(0.1)
-
-        # ── Send password & collect trace ────────────────────────────────────
+        # Send password & collect trace
         ser.write((password + '\n').encode())
-    # while True:
+    
+        #Reading response
         arduino_resp = ser.readline()
-    #     if "Password received" in arduino_resp:
-    #         break
+
+        #Print response
         print(f"  Arduino: {arduino_resp.strip()}")
 
+        #Waiting for thread to finish
         t.join(timeout=5)
         if t.is_alive():
             print(f"  [!] trace {i} timed out — skipping")
             scope.close(device_data)
-            clock_stop(dwf, hdwf)
-            device.close(device_data)
             sleep(0.5)
             continue
 
-        # ── Process & save ───────────────────────────────────────────────────
+        # Process & save 
         buffer = buffer_holder[0]
 
         # Keep only the post-trigger half
@@ -194,11 +188,11 @@ try:
                  buffer=buffer,
                  password=np.frombuffer(password.encode(), dtype=np.uint8))
 
-        # ── Plot ─────────────────────────────────────────────────────────────
+        # Plot
         time_axis = [s * 1e3 / scope.data.sampling_frequency
                      for s in range(len(buffer))]
         plt.figure()
-        # plt.xlim(0, 0.022)
+        plt.xlim(0, 0.022)
         # plt.ylim(3.3, 4)
         plt.plot(time_axis, buffer,
                  color='#2196F3', linewidth=0.5, alpha=0.8)
@@ -206,18 +200,20 @@ try:
         plt.xlabel(f"time [ms]  —  pass: {password}")
         plt.ylabel("voltage [V]")
         plt.savefig(f'test_trace{i}', dpi=250)
-        plt.close()   # free memory — important in long campaigns
+        plt.close()
 
-        # ── Tear down for this iteration ─────────────────────────────────────
+        #Reset scope buffer locally
+        dwf.FDwfAnalogInReset(hdwf)
+
+        # Tear down for this iteration
         scope.close(device_data)
-        clock_stop(dwf, hdwf)
-        device.close(device_data)
 
+        #Empty buffer variable just to be safe
         buffer = None
-        sleep(1)   # reduced from 1 s — clock restart gives the chip time
 
     print("\n[done] all traces captured")
-
+    clock_stop(dwf, hdwf)
 except error as e:
     print(e)
     device.close(device.data)
+    clock_stop(dwf, hdwf)

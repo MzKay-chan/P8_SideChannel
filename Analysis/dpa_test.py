@@ -7,10 +7,10 @@ known = "ilovecheese"
 # load all traces
 traces = []
 passwords = []
-for f in sorted(os.listdir('traces2')):
+for f in sorted(os.listdir('traces')):
     if not f.endswith('.npz'):
         continue
-    data = np.load(f'traces2/{f}')
+    data = np.load(f'traces/{f}')
     traces.append(data['buffer'])
     passwords.append(data['password'].tobytes().decode())
 traces = np.array(traces)
@@ -99,22 +99,22 @@ match display_graph:
 
         ax1.plot(group_means[0], color='black', linewidth=0.5, label='0 matches')
         ax1.plot(group_means[1], color='red', linewidth=0.5, label='1 match')
-        ax1.plot(group_means[2], color='green', linewidth=0.5, label='2 matches')
+        # ax1.plot(group_means[2], color='green', linewidth=0.5, label='2 matches')
         # ax1.plot(group_means[3], color='blue', linewidth=0.5, label='3 matches')
         ax1.axhline(0, color='black', linewidth=0.5)
         ax1.set_title('DPA: Mean Power Consumption by Group', fontsize=14)
         ax1.set_ylabel('Power (mW or arbitrary units)')
         ax1.legend(fontsize=7)
         ax1.grid(True, alpha=0.3)
-        ax1.set_ylim(bottom=3.55, top=3.65)
+        ax1.set_ylim(bottom=3.4, top=3.75)
 
         # --- BOTTOM GRAPH: Difference of means (your original code) ---
         diff1 = group_means[1] - group_means[0]
-        diff2 = group_means[2] - group_means[0]
+        #diff2 = group_means[2] - group_means[0]
         # diff3 = group_means[3] - group_means[0]
 
         ax2.plot(diff1, color='red', linewidth=0.5, label='1 match - 0 match')
-        ax2.plot(diff2, color='green', linewidth=0.5, label='2 matches - 0 match')
+        # ax2.plot(diff2, color='green', linewidth=0.5, label='2 matches - 0 match')
         # ax2.plot(diff3, color='blue', linewidth=0.5, label='3 matches - 0 match')
         ax2.axhline(0, color='black', linewidth=0.5)
         ax2.set_title('DPA: Difference of Means', fontsize=14)
@@ -140,7 +140,7 @@ match display_graph:
         ax1.set_ylabel('Power (mW or arbitrary units)')
         ax1.legend(fontsize=7)
         ax1.grid(True, alpha=0.3)
-        ax1.set_ylim(bottom=3.55, top=3.65)
+        ax1.set_ylim(bottom=3.43, top=3.65)
 
         # --- BOTTOM GRAPH: Difference of means (your original code) ---
         diff1 = char_grouped_means[8] - mean_all
