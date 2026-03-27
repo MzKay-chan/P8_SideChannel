@@ -5,5 +5,4 @@ Images/
 *.pyc
 **/images
 *.log
-traces/
 *.png
