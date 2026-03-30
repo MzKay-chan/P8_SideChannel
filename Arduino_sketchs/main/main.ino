@@ -1,8 +1,7 @@
 #include <Arduino.h>
 #include <string.h>
 
-// put function declarations here:
-#define MAX_LEN 20
+#define MAX_LEN 32
 
 bool checkPassword(const char* pass, size_t inputLength);
 
@@ -43,7 +42,6 @@ void loop() {
 			if (tempChar == '\n') break;
 
 			inputPassArr[index++] = tempChar;
-			
 		}
 	}
 
@@ -54,9 +52,6 @@ void loop() {
 	}
 
 	size_t inputLen = strlen(inputPassArr);
-
-
-	// activate trigger pin before password check
 
 	digitalWrite(triggerPin, HIGH);
 	bool ok = checkPassword(inputPassArr, inputLen);
@@ -69,27 +64,13 @@ void loop() {
 	
 }
 
-// WHAT TO DO????	
+
 bool checkPassword(const char* pass, size_t inputLength) {
-	// size_t inputLength = strlen(pass);
-	// uint16_t count = 0;
-	// uint16_t dummy_count = 0;
-
 	uint8_t diff = 0;
-	// uint8_t len_diff = 0;
-
-	// len_diff = (uint8_t)(inputLength ^ correctLength);
 
 	size_t max = (inputLength > correctLength) ? inputLength : correctLength;
 
 	for (size_t i = 0; i < max; i++) {
-		// uint8_t input_mask = (uint8_t)((i - inputLength) >> 8);
-
-		// uint8_t pass_mask = (uint8_t)((i - correctLength) >> 8);
-
-		// uint8_t p = pass[i] & input_mask;
-		// uint8_t k = knownPassword[i] & pass_mask;
-
 		uint8_t p = (i < inputLength) ? pass[i] : 0;
 		uint8_t k = (i < correctLength) ? knownPassword[i] : 0;
 
@@ -97,20 +78,4 @@ bool checkPassword(const char* pass, size_t inputLength) {
 	}
 
 	return diff == 0;
-	// return (diff | len_diff) == 0;
-
-
-    // CHECK PASSWORD WITHOUT LEAKING ANY INFORMATION.
-	// for (uint16_t i = 0; i < inputLength; i++) {
-	// 	if (pass[i] == knownPassword[i % (correctLength + 1)]) {
-	// 		count++;
-	// 	}
-	// 	else {
-	// 		count += correctLength + 1;
-	// 	}
-	// }
-
-	// if (count == correctLength) return true; else return false;
-
-
 }
