@@ -43,26 +43,6 @@ for p in passwords:
         wrong_length_counter += 1
 print(f'{wrong_length_counter} passwords had wrong length')
 
-# # get the average trace for each match length and plot it
-# plt.figure(figsize=(20, 5))
-# for m in sorted(set(matches)):
-#     group = traces[[i for i, x in enumerate(matches) if x == m]]
-#     avg = np.mean(group, axis=0)
-#     plt.plot(avg, linewidth=0.8, alpha=0.7, label=f'{m} chars match')
-# plt.legend(fontsize=7)
-# plt.title('Average trace per prefix match length')
-# plt.savefig('spa_average.png', dpi=150)
-
-# # plot all the traces with 'x' matches
-# x = 2
-# run_count = 0
-# for i, m in enumerate(matches):
-#     if m == x:
-#         plt.figure(figsize=(20, 5))
-#         plt.plot(traces[i], linewidth=0.5)
-#         plt.title(f'Trace with {x} chars match: {passwords[i]}')
-#         plt.show()
-
 # split the traces into groups based on the number of matches
 group_0_mean = np.mean(traces[[i for i, x in enumerate(matches) if x == 0]], axis=0)
 group_1_mean = np.mean(traces[[i for i, x in enumerate(matches) if x >= 1]], axis=0)
@@ -82,7 +62,7 @@ char_grouped_means = [np.mean(group, axis=0) for group in char_grouped_traces]
 mean_all = np.mean(traces, axis=0)
 
 # choose which graph to display
-display_graph = 3
+display_graph = 5
 match display_graph:
     case 1:
         diff = group_1_mean - group_0_mean
@@ -160,29 +140,30 @@ match display_graph:
         plt.tight_layout()
         plt.savefig('dpa_diff.png', dpi=150)
         plt.show()
-    
+    case 4:
+        # measure where the signal drops back to baseline after trigger spike
+        # proxy for how long the comparison took
+        def find_end(trace, threshold=4.15):
+            for i in range(len(trace)-1, 0, -1):
+                if trace[i] < threshold:
+                    return i
+            return len(trace)
+
+        timings = [find_end(t) for t in traces]
+
+        plt.figure(figsize=(10, 5))
+        plt.scatter(matches, timings, alpha=0.6)
+        plt.xlabel('Prefix match length')
+        plt.ylabel('Comparison end sample')
+        plt.title('Timing vs prefix match length')
+        plt.savefig('timing.png', dpi=150)
+    case 5:
+        from analysis import Analyser
+        analyser = Analyser()
+        analyser.load_new_traces('traces')
+        print(analyser.known_password)
+        analyser.dpa()
+        print(analyser.known_password)
 
 
-# plt.figure(figsize=(20, 5))
-# plt.plot(diff, color='red', linewidth=0.5)
-# plt.axhline(0, color='black', linewidth=0.5)
-# plt.title('DPA: Difference of means (0 match vs 1+ match)')
-# plt.savefig('dpa_diff.png', dpi=150)
 
-
-# measure where the signal drops back to baseline after trigger spike
-# proxy for how long the comparison took
-def find_end(trace, threshold=4.15):
-    for i in range(len(trace)-1, 0, -1):
-        if trace[i] < threshold:
-            return i
-    return len(trace)
-
-timings = [find_end(t) for t in traces]
-
-plt.figure(figsize=(10, 5))
-plt.scatter(matches, timings, alpha=0.6)
-plt.xlabel('Prefix match length')
-plt.ylabel('Comparison end sample')
-plt.title('Timing vs prefix match length')
-plt.savefig('timing.png', dpi=150)
