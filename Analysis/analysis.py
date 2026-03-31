@@ -79,8 +79,167 @@ class Analyser:
             high_values.append( np.partition( np.abs(index_difference), -value_threshold )[-value_threshold] )
 
         significant_trace = high_values.index(max(high_values))
-        self.traces = []
-        self.passwords = []
+        #self.traces = []
+        #self.passwords = []
         self.known_password += self.alphabet[significant_trace]
         return
+
+    def plotschat(self):
+        """
+        DPA plot for the CURRENT recovered character.
+        Only uses traces where previous characters are correct.
+        """
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        if len(self.traces) == 0:
+            print("No traces loaded")
+            return
+
+        # Current position we just solved
+        k = len(self.known_password) - 1
+        if k < 0:
+            print("No known characters yet")
+            return
+
+        correct_char = self.known_password[k]
+
+        group0 = []  # wrong at position k
+        group1 = []  # correct at position k
+
+        # --- FILTER + GROUP ---
+        for trace, password in zip(self.traces, self.passwords):
+
+            # Only keep traces where prefix is correct
+            if password[:k] != self.known_password[:k]:
+                continue
+
+            # Split on current position
+            if password[k] == correct_char:
+                group1.append(trace)
+            else:
+                group0.append(trace)
+
+        if len(group0) == 0 or len(group1) == 0:
+            print("Not enough valid traces after filtering")
+            return
+
+        group0 = np.array(group0)
+        group1 = np.array(group1)
+
+        # Means
+        mean0 = np.mean(group0, axis=0)
+        mean1 = np.mean(group1, axis=0)
+        #meanall = np.mean(group1 + group0, axis=0)
+        # Proper DPA
+        diff = mean1 - mean0
+        diff2 = mean1 - meanall
+        # --- PLOT ---
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(20, 10))
+
+        # Means
+        ax1.plot(mean0, color='black', linewidth=0.5, label='wrong')
+        ax1.plot(mean1, color='red', linewidth=0.5, label='correct')
+
+        ax1.set_title(f'DPA Means (Position {k}, char="{correct_char}")')
+        ax1.set_ylabel('Power')
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+
+        # DPA signal
+        ax2.plot(diff, color='red', linewidth=0.7, label='correct - wrong')
+        #ax2.plot(diff2, color='black', linewidth=0.7, label='correct - wrong')
+        ax2.axhline(0, color='black', linewidth=0.5)
+
+        ax2.set_title('DPA Signal')
+        ax2.set_ylabel('Power Difference')
+        ax2.set_xlabel('Time (samples)')
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+
+        filename = f'dpa_pos{k}.png'
+        plt.savefig(filename, dpi=150)
+        print(f"Saved plot to {filename}")
+
+        plt.close()
+
+        # Reset for next round
+        self.traces = []
+        self.passwords = []
+
+    def plots(self):
+        """
+        Create diagnostic plots for DPA analysis.
+        Shows individual group means and difference of means for character hypotheses.
+        """
+        import matplotlib.pyplot as plt
+        
+        if len(self.traces) == 0:
+            print("No traces loaded - cannot create plots")
+            return
+        
+        # Group traces by character at current position
+        grouped_traces = self._group_by_character()
+        
+        # Calculate mean for each character group
+        char_grouped_means = self._average_every_group(grouped_traces)
+        
+        # Calculate overall mean (average of all traces)
+        mean_all = np.mean(self.traces, axis=0)
+        
+        # Get the position we're currently attacking
+        position = len(self.known_password)
+        
+        # Create figure with 2 subplots
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(20, 10))
+        
+        # --- TOP GRAPH: Individual group means for first few characters ---
+        num_chars_to_plot = min(5, len(self.alphabet))  # Plot first 5 chars
+        colors = ['red', 'green', 'blue', 'orange', 'purple']
+        
+        for i in range(num_chars_to_plot):
+            if char_grouped_means[i] is not None and len(char_grouped_means[i]) > 0:
+                ax1.plot(char_grouped_means[i], 
+                        color=colors[i], 
+                        linewidth=0.5, 
+                        label=f"'{self.alphabet[i]}' match",
+                        alpha=0.7)
+        
+        ax1.axhline(0, color='black', linewidth=0.5)
+        ax1.set_title(f'DPA: Mean Power Consumption by Character at Position {position}', fontsize=14)
+        ax1.set_ylabel('Power (V)')
+        ax1.set_xlabel('Time (samples)')
+        ax1.legend(fontsize=9)
+        ax1.grid(True, alpha=0.3)
+        
+        # --- BOTTOM GRAPH: Difference of means ---
+        for i in range(num_chars_to_plot):
+            if char_grouped_means[i] is not None and len(char_grouped_means[i]) > 0:
+                diff = char_grouped_means[i] - mean_all
+                ax2.plot(diff, 
+                        color=colors[i], 
+                        linewidth=0.5, 
+                        label=f"'{self.alphabet[i]}' - mean",
+                        alpha=0.7)
+        
+        ax2.axhline(0, color='black', linewidth=0.5)
+        ax2.set_title('DPA: Difference of Means (Signal)', fontsize=14)
+        ax2.set_ylabel('Power Difference (V)')
+        ax2.set_xlabel('Time (samples)')
+        ax2.legend(fontsize=9)
+        ax2.grid(True, alpha=0.3)
+        
+        plt.tight_layout()
+        
+        # Save with position indicator
+        filename = f'dpa_analysis_pos{position}.png'
+        plt.savefig(filename, dpi=150)
+        print(f"Saved plot to {filename}")
+        plt.close()
+        self.traces = []
+        self.passwords = []
+        return
+
 

