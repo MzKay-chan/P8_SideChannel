@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import matplotlib as plt
 
 class Analyser:
     alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789'
@@ -63,25 +64,61 @@ class Analyser:
         else:
             return np.mean(grouped_traces[indices], axis=0)
 
-    def dpa(self, value_threshold=5):
+    @staticmethod
+    def _save_plot(mean1, mean0, significant_string):
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(20, 10))
+
+        # --- TOP GRAPH: Individual group means ---
+
+        ax1.plot(mean1, color='red', linewidth=0.5, label=f'group1: {significant_string}')
+        ax1.plot(mean0, color='blue', linewidth=0.5, label=f'group0: {significant_string[-1]}[^{significant_string[-1]}]')
+        ax1.set_title('Mean Power Consumption by Group', fontsize=14)
+        ax1.set_ylabel('Power (mW)')
+        ax1.legend(fontsize=7)
+        ax1.grid(True, alpha=0.3)
+        ax1.set_ylim(bottom=3.4, top=3.75)
+
+        # --- BOTTOM GRAPH: Difference of means ---
+        
+        diff = mean1 - mean0
+        ax2.plot(diff, color='red', linewidth=0.5, label='group1 - group0')
+        ax2.set_title('Difference of Means', fontsize=14)
+        ax2.set_ylabel('Power (mW)')
+        ax2.set_xlabel('Time (samples)')
+        ax2.legend(fontsize=7)
+        ax2.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        plt.savefig(f'dpa_plots/dpa_plot({significant_string}).png', dpi=150)
+
+    def dpa(self, value_threshold=5, save_plots=True):
         if len(self.traces) == 0:
             raise ValueError('Need new traces to perform dpa')
         grouped_traces = self._group_by_character()
         group_indices = list(range(len(grouped_traces)))
         high_values = []
+        list_of_differences = []
         for i in group_indices:
-            index_average = Analyser._average_groups_at_indices(grouped_traces, i)
-            nonindex_trace_indices = [x for x in group_indices if x != i]
-            nonindex_average = Analyser._average_groups_at_indices(grouped_traces, nonindex_trace_indices)
-            index_difference = index_average - nonindex_average
+            average_group_1 = Analyser._average_groups_at_indices(grouped_traces, i)
+            non_i_traces = [x for x in group_indices if x != i]
+            average_group_0 = Analyser._average_groups_at_indices(grouped_traces, non_i_traces)
+            group_difference = average_group_1 - average_group_0
+            # for plotting later
+            list_of_differences.append([average_group_0, average_group_1])
             # This gets the fifth largest value in the 'difference of means' trace (or whatever value_threshold is set to)
             # Hopefully this will prune out any weird values spikes
-            high_values.append( np.partition( np.abs(index_difference), -value_threshold )[-value_threshold] )
+            high_values.append( np.partition( np.abs(group_difference), -value_threshold )[-value_threshold] )
 
-        significant_trace = high_values.index(max(high_values))
+        significant_group_index = high_values.index(max(high_values))
+
         #self.traces = []
         #self.passwords = []
-        self.known_password += self.alphabet[significant_trace]
+        self.known_password += self.alphabet[significant_group_index]
+        # save a plot for that found character
+        Analyser._save_plot(
+            list_of_differences[significant_group_index][1], 
+            list_of_differences[significant_group_index][0], 
+            self.known_password)
         return
 
     def plotschat(self):
