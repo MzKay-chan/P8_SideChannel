@@ -4,6 +4,7 @@ import matplotlib as plt
 
 class Analyser:
     alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789'
+    actual_password = 'ilovecheese'
 
     def __init__(self):
         self.known_password = ''
@@ -71,7 +72,7 @@ class Analyser:
         # --- TOP GRAPH: Individual group means ---
 
         ax1.plot(mean1, color='red', linewidth=0.5, label=f'group1: {significant_string}')
-        ax1.plot(mean0, color='blue', linewidth=0.5, label=f'group0: {significant_string[-1]}[^{significant_string[-1]}]')
+        ax1.plot(mean0, color='blue', linewidth=0.5, label=f'group0: {significant_string[:-1]}[^{significant_string[-1]}]')
         ax1.set_title('Mean Power Consumption by Group', fontsize=14)
         ax1.set_ylabel('Power (mW)')
         ax1.legend(fontsize=7)
@@ -114,11 +115,22 @@ class Analyser:
         #self.traces = []
         #self.passwords = []
         self.known_password += self.alphabet[significant_group_index]
-        # save a plot for that found character
-        Analyser._save_plot(
-            list_of_differences[significant_group_index][1], 
-            list_of_differences[significant_group_index][0], 
-            self.known_password)
+        if save_plots:
+            # save a plot for that found character
+            Analyser._save_plot(
+                list_of_differences[significant_group_index][1], 
+                list_of_differences[significant_group_index][0], 
+                self.known_password
+            )
+            # BUG FIXING: 
+            if self.known_password not in self.actual_password:
+                correct_letter = self.actual_password[len(self.known_password) - 1]
+                correct_index = self.alphabet.index(correct_letter)
+                Analyser._save_plot(
+                    list_of_differences[correct_index][1],
+                    list_of_differences[correct_index][0],
+                    self.actual_password[:len(self.known_password) - 1]
+                )
         return
 
     def plotschat(self):
