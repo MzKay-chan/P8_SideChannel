@@ -101,6 +101,9 @@ try:
     #Initalise analyser
     analy = Analyser()
     
+    #Set at counter for the traces
+    counter = 0
+
     os.makedirs('traces', exist_ok=True)
     found = False
     # Load WaveForms DWF library (needed for clock control)
@@ -125,6 +128,7 @@ try:
         print(f"We know: {known}")
         passwords = generate_dpa_passwords(11, 1, 8, known)
         print(f"Generated {len(passwords)} passwords")
+        counter++
         for i, password in enumerate(passwords):
             # ser.reset_input_buffer()
             print(f"\n[{i+1}/{len(passwords)}] password: {password}")
@@ -195,23 +199,23 @@ try:
 
             print(f"  samples captured: {len(buffer)}")
 
-            np.savez(f'traces/trace{i}.npz',
+            np.savez(f'traces/trace{counter}-{i}.npz',
                      buffer=buffer,
                      password=np.frombuffer(password.encode(), dtype=np.uint8))
 
             # Plot
             time_axis = [s * 1e3 / scope.data.sampling_frequency
                          for s in range(len(buffer))]
-            plt.figure()
-            plt.xlim(0, 0.022)
-            # plt.ylim(3.3, 4)
-            plt.plot(time_axis, buffer,
-                     color='#2196F3', linewidth=0.5, alpha=0.8)
-            plt.title(f'Post-trigger trace {i}')
-            plt.xlabel(f"time [ms]  —  pass: {password}")
-            plt.ylabel("voltage [V]")
-            plt.savefig(f'trace_png/test_trace{i}', dpi=250)
-            plt.close()
+            # plt.figure()
+            # plt.xlim(0, 0.022)
+            # # plt.ylim(3.3, 4)
+            # plt.plot(time_axis, buffer,
+            #          color='#2196F3', linewidth=0.5, alpha=0.8)
+            # plt.title(f'Post-trigger trace {i}')
+            # plt.xlabel(f"time [ms]  —  pass: {password}")
+            # plt.ylabel("voltage [V]")
+            # plt.savefig(f'trace_png/test_trace{i}', dpi=250)
+            # plt.close()
 
             #Reset scope buffer locally
             dwf.FDwfAnalogInReset(hdwf)
