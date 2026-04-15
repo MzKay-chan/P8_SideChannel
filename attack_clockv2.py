@@ -126,9 +126,9 @@ try:
     while found != True:
         known = analy.known_password
         print(f"We know: {known}")
-        passwords = generate_dpa_passwords(11, 1, 8, known)
+        passwords = generate_dpa_passwords(11, 1, 80, known)
         print(f"Generated {len(passwords)} passwords")
-        counter++
+        counter +=1
         for i, password in enumerate(passwords):
             # ser.reset_input_buffer()
             print(f"\n[{i+1}/{len(passwords)}] password: {password}")
@@ -199,7 +199,7 @@ try:
 
             print(f"  samples captured: {len(buffer)}")
 
-            np.savez(f'traces/trace{counter}-{i}.npz',
+            np.savez(f'traces/trace{i}.npz',
                      buffer=buffer,
                      password=np.frombuffer(password.encode(), dtype=np.uint8))
 
@@ -229,7 +229,6 @@ try:
             break
         analy.load_new_traces('traces')
         analy.dpa()
-        analy.plotschat()
 
     print(f"\nDPA done: found password: {correct_password}")
     clock_stop(dwf, hdwf)

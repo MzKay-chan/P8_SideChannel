@@ -1,6 +1,6 @@
 import numpy as np
 import os
-import matplotlib as plt
+import matplotlib.pyplot as plt
 
 class Analyser:
     alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789'
@@ -72,12 +72,15 @@ class Analyser:
         # --- TOP GRAPH: Individual group means ---
 
         ax1.plot(mean1, color='red', linewidth=0.5, label=f'group1: {significant_string}')
-        ax1.plot(mean0, color='blue', linewidth=0.5, label=f'group0: {significant_string[:-1]}[^{significant_string[-1]}]')
+        if not significant_string:
+            ax1.plot(mean0, color='blue', linewidth=0.5, label=f'group0: {significant_string}[^{significant_string}]')
+        else:
+            ax1.plot(mean0, color='blue', linewidth=0.5, label=f'group0: {significant_string[:-1]}[^{significant_string[-1]}]')
         ax1.set_title('Mean Power Consumption by Group', fontsize=14)
         ax1.set_ylabel('Power (mW)')
         ax1.legend(fontsize=7)
         ax1.grid(True, alpha=0.3)
-        ax1.set_ylim(bottom=3.4, top=3.75)
+        #ax1.set_ylim(bottom=3.4, top=3.75)
 
         # --- BOTTOM GRAPH: Difference of means ---
         
@@ -108,7 +111,8 @@ class Analyser:
             list_of_differences.append([average_group_0, average_group_1])
             # This gets the fifth largest value in the 'difference of means' trace (or whatever value_threshold is set to)
             # Hopefully this will prune out any weird values spikes
-            high_values.append( np.partition( np.abs(group_difference), -value_threshold )[-value_threshold] )
+            group_difference_adjusted = group_difference - np.mean(group_difference)
+            high_values.append( np.partition( np.abs(group_difference_adjusted), -value_threshold )[-value_threshold] )
 
         significant_group_index = high_values.index(max(high_values))
 
@@ -123,13 +127,13 @@ class Analyser:
                 self.known_password
             )
             # BUG FIXING: 
-            if self.known_password not in self.actual_password:
+            if self.known_password != self.actual_password[:len(self.known_password)]:
                 correct_letter = self.actual_password[len(self.known_password) - 1]
                 correct_index = self.alphabet.index(correct_letter)
                 Analyser._save_plot(
                     list_of_differences[correct_index][1],
                     list_of_differences[correct_index][0],
-                    self.actual_password[:len(self.known_password) - 1]
+                    self.actual_password[:len(self.known_password)]
                 )
         return
 
@@ -138,8 +142,6 @@ class Analyser:
         DPA plot for the CURRENT recovered character.
         Only uses traces where previous characters are correct.
         """
-        import matplotlib.pyplot as plt
-        import numpy as np
 
         if len(self.traces) == 0:
             print("No traces loaded")
