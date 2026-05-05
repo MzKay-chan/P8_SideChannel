@@ -1,9 +1,8 @@
 Results/
 Papers/
 traces/
-Images/
 **/__pycache__
 *.pyc
 **/images
 *.log
-*.png
+

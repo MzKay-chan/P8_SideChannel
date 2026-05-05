@@ -1,112 +1,217 @@
-from WF_SDK import device, scope, error       # import instruments
-import string, random
-import serial
-import matplotlib.pyplot as plt
+"""
+collect_hw_traces_v3.py
+────────────────────────────────────────────────────────────────────────────
+Scope open/close happens inside the capture loop — matching the pattern
+from attack_clockv2.py that you know works.
+
+Change TARGET_BYTE and run once per pattern:
+  0x00  HW=0   (minimum power)
+  0xFF  HW=8   (maximum power)
+  0xAA  HW=4   (medium)
+  0x0F  HW=4   (same HW as 0xAA — should look identical)
+────────────────────────────────────────────────────────────────────────────
+"""
+
+from WF_SDK import device, scope, error
+from ctypes import *
 import numpy as np
-import threading
-from time import sleep
+import matplotlib.pyplot as plt
 import os
+from time import sleep
 
-"""-----------------------------------------------------------------------"""
+# ── Configuration ─────────────────────────────────────────────────────────────
 
-try:
-    os.makedirs('traces', exist_ok=True)
+TARGET_BYTE  = 0xFF     # ← change this per run
+NUM_TRACES   = 100
 
-    # connect to the device
-    ser = serial.Serial('/dev/ttyACM0', baudrate=9600, timeout=1)
-    
-    ##For testing a simple set of password
-    #passwords = ["iAAAAAAAAAA", "ilAAAAAAAAA"]
+CLOCK_FREQ_HZ   = 16e6  # 1 MHz — 100 samples/cycle at 100 MS/s
+CLOCK_AMPLITUDE = 2.5
+CLOCK_OFFSET    = 2.5
 
-    #Generate all the passwords that we want to test
-    passwords = []
+SAMPLE_RATE  = 100e6
+BUFFER_SIZE  = 4096     # ~40 µs window at 100 MS/s
 
-    for _ in range(50):
-        passwords.append(''.join(random.choices(string.ascii_lowercase, k=random.randint(1, 19))))
+# Match what WaveForms showed: signal at ~4.5 V, swing ~200 mV
+# CH1 offset = -4.445 V centres the signal, range = 0.5 V captures the swing
+SCOPE_OFFSET     = -4.445   # V
+SCOPE_RANGE      =  2    # V  (±0.5 V around offset)
 
-    for length in range(1, len(known)+1):
-        for _ in range(5):  # 5 traces per prefix length
-            prefix = known[:length]
-            # add random suffix to keep length variable
-            suffix = ''.join(random.choices(string.ascii_lowercase, k=random.randint(0, 5)))
-            passwords.append(prefix + suffix)
+TRIGGER_CHANNEL  = 2        # CH2 = PB0 from ATmega
+TRIGGER_LEVEL    = 2.15     # V rising edge — matches your WaveForms setting
+TRIGGER_TIMEOUT  = 6        # seconds
 
-    random.shuffle(passwords)  # shuffle so pattern isn't time-dependent
+INTER_TRACE_DELAY = 0.05    # seconds between traces — gives scope time to re-arm
+                             # increase to 0.05 if you still get stale traces
 
-    for i in range(len(passwords)):
-        #Open everything
+OUTPUT_DIR = 'traces_hw'
 
-        device_data = device.open()
-        #Start the oscilliscope
-        scope.open(device_data, sampling_frequency=100e06, buffer_size=8192, offset=0, amplitude_range=6)
+# ── Clock ──────────────────────────────────────────────────────────────────────
 
-        #Prep for the trigger event
-        scope.trigger(device_data, enable=True, source=scope.trigger_source.analog, channel=2, level=3)
+def load_dwf():
+    import sys
+    if sys.platform == "win32":
+        return cdll.LoadLibrary("dwf.dll")
+    elif sys.platform == "darwin":
+        return cdll.LoadLibrary("/Library/Frameworks/dwf.framework/dwf")
+    else:
+        return cdll.LoadLibrary("libdwf.so")
 
-        buffer_holder = [None]
+def clock_start(dwf, hdwf):
+    ch = c_int(0); node = c_int(0)
+    dwf.FDwfAnalogOutNodeEnableSet(hdwf, ch, node, c_bool(True))
+    dwf.FDwfAnalogOutNodeFunctionSet(hdwf, ch, node, c_int(1))
+    dwf.FDwfAnalogOutNodeFrequencySet(hdwf, ch, node, c_double(CLOCK_FREQ_HZ))
+    dwf.FDwfAnalogOutNodeAmplitudeSet(hdwf, ch, node, c_double(CLOCK_AMPLITUDE))
+    dwf.FDwfAnalogOutNodeOffsetSet(hdwf, ch, node, c_double(CLOCK_OFFSET))
+    dwf.FDwfAnalogOutConfigure(hdwf, ch, c_bool(True))
+    print(f"[clock] W1 at {CLOCK_FREQ_HZ/1e6:.2f} MHz")
 
-        print("going into while loop")
-        #Wait for the arduino to be ready
-        while True:
-            response = ser.readline()
-            print(response.strip())
-            if response.strip() == b"Enter Password:":
-                print("Check")
+def clock_stop(dwf, hdwf):
+    dwf.FDwfAnalogOutConfigure(hdwf, c_int(0), c_bool(False))
+    print("[clock] stopped")
+
+# ── Capture loop ───────────────────────────────────────────────────────────────
+
+def collect_traces(device_data, num_traces, dwf, hdwf):
+    traces = []
+    failed = 0
+
+    for i in range(num_traces):
+
+        # Open scope fresh for each trace — this is what resets and re-arms
+        scope.open(device_data,
+                   sampling_frequency=SAMPLE_RATE,
+                   buffer_size=BUFFER_SIZE,
+                   offset=SCOPE_OFFSET,
+                   amplitude_range=SCOPE_RANGE)
+
+        # Arm trigger
+        scope.trigger(device_data,
+                      enable=True,
+                      source=scope.trigger_source.analog,
+                      channel=TRIGGER_CHANNEL,
+                      level=TRIGGER_LEVEL,
+                      timeout=TRIGGER_TIMEOUT)
+
+        try:
+            raw = scope.record(device_data, channel=1)
+        except Exception as e:
+            print(f"  [!] Trace {i+1} failed: {e}")
+            scope.close(device_data)
+            failed += 1
+            if failed > 10:
+                print("  [!!] Too many failures — aborting")
                 break
-            
-        print(f'Arduino: {response.strip()}')
+            continue
+        finally:
+            dwf.FDwfAnalogInReset(hdwf)
+            scope.close(device_data)
 
-        def record():
-            buffer_holder[0] = scope.record(device_data, channel=1)
+        trace = np.array(raw)
 
-        t = threading.Thread(target=record)
-        t.start()
-        #Small delay to ensure the scope is armed
-        sleep(0.5)
-
- 
-        print(f'Sending password: {passwords[i]}')
-        ser.write((passwords[i] + '\n').encode())
-        resp = ser.readline()
-        print(resp)
-
-        t.join(timeout=5)
-        if t.is_alive():
-            print(f"Trace {i}: timed out")
+        # Basic sanity check — if std is zero the buffer is stale
+        if np.std(trace) < 1e-10:
+            print(f"  [!] Trace {i+1}: zero variance — stale buffer, skipping")
+            failed += 1
+            sleep(INTER_TRACE_DELAY * 2)
             continue
 
-        print("Trace recieved")     
-        buffer = buffer_holder[0]
-        trigger_idx = len(buffer) //2 
-        buffer = buffer[trigger_idx:]
+        traces.append(trace)
 
-        print(len(buffer))
-        #Read arduino response 
-        print('saving') 
-        np.savez(f'traces/trace{i}.npz',
-                 buffer=buffer,
-                 password=np.frombuffer(passwords[i].encode(), dtype=np.uint8))
+        if (i + 1) % 10 == 0:
+            swing_mv = (trace.max() - trace.min()) * 1000
+            print(f"  {i+1:3d}/{num_traces}  "
+                  f"swing: {swing_mv:.2f} mV  "
+                  f"mean: {trace.mean():.4f} V")
 
-        #Uncomment to get graphs for each trace
-        time = [i * 1e03 / scope.data.sampling_frequency for i in range(len(buffer))]
-        plt.figure()
-        plt.xlim(0, 0.022)  # x range in ms
-        plt.ylim(3.9, 4.5)  # y range in volts
-        plt.plot(time, buffer, color='#2196F3', linewidth=0.5, alpha=0.8)
-        plt.title(f'Post trigger only{i}')
-        plt.xlabel(f"time [ms] - Pass:{passwords[i]}")
-        plt.ylabel("voltage [V]")
-        plt.savefig(f'test_trace{i}', dpi = 250)
-        #plt.show()
-        buffer = None
+        sleep(INTER_TRACE_DELAY)
 
-        print('closing the scope?')
-        scope.close(device_data)
+    return np.array(traces)
+
+# ── Plotting ───────────────────────────────────────────────────────────────────
+
+def plot_results(traces, target_byte):
+    hw = bin(target_byte).count('1')
+    time_us = np.arange(traces.shape[1]) / SAMPLE_RATE * 1e6
+    mean = np.mean(traces, axis=0)
+    std  = np.std(traces, axis=0)
+
+    fig, axes = plt.subplots(2, 1, figsize=(12, 8))
+
+    # Overlay
+    ax = axes[0]
+    for t in traces:
+        ax.plot(time_us, t, color='#2196F3', linewidth=0.4, alpha=0.2)
+    ax.plot(time_us, mean, color='#E53935', linewidth=1.5,
+            label='Mean', zorder=5)
+    ax.set_title(f'Overlay — 0x{target_byte:02X}  HW={hw}  ({len(traces)} traces)',
+                 fontsize=13)
+    ax.set_xlabel('Time [µs]'); ax.set_ylabel('Voltage [V]')
+    ax.legend(); ax.grid(True, alpha=0.3)
+
+    # Std deviation — peaks show instruction boundaries
+    ax2 = axes[1]
+    ax2.plot(time_us, std, color='#FF9800', linewidth=1.0)
+    ax2.set_title('Std deviation — peaks = instruction-level switching events',
+                  fontsize=11)
+    ax2.set_xlabel('Time [µs]'); ax2.set_ylabel('Std [V]')
+    ax2.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    path = f'{OUTPUT_DIR}/overlay_0x{target_byte:02X}.png'
+    plt.savefig(path, dpi=200)
+    print(f"[plot] → {path}")
+    plt.show()
+
+    return time_us
+
+# ── Main ───────────────────────────────────────────────────────────────────────
+
+def main():
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    hw = bin(TARGET_BYTE).count('1')
+
+    print(f"\n{'='*55}")
+    print(f"  TARGET_BYTE : 0x{TARGET_BYTE:02X}  HW={hw}")
+    print(f"  Clock       : {CLOCK_FREQ_HZ/1e6:.2f} MHz")
+    print(f"  Samples/cycle: {SAMPLE_RATE/CLOCK_FREQ_HZ:.0f}")
+    print(f"  Window      : {BUFFER_SIZE/SAMPLE_RATE*1e6:.0f} µs")
+    print(f"{'='*55}\n")
+
+    dwf = load_dwf()
+    device_data = device.open()
+    hdwf = device_data.handle
+
+    try:
+        clock_start(dwf, hdwf)
+        sleep(2)
+
+        print(f"[capture] Collecting {NUM_TRACES} traces ...\n")
+        traces = collect_traces(device_data, NUM_TRACES, dwf, hdwf)
+
+    finally:
+        clock_stop(dwf, hdwf)
         device.close(device_data)
-        sleep(1)
 
+    if len(traces) == 0:
+        print("[!] No traces captured — check wiring and firmware")
+        return
 
-except error as e:
-    print(e)
-    # close the connection
-    device.close(device.data)
+    print(f"\n[done] {len(traces)} traces")
+    print(f"       Voltage : {traces.min():.4f} – {traces.max():.4f} V")
+    print(f"       Swing   : {(traces.max()-traces.min())*1000:.2f} mV")
+    print(f"       Std     : {np.std(traces)*1000:.3f} mV")
+
+    if np.std(traces) < 1e-6:
+        print("\n[!!] Still zero variance — try increasing INTER_TRACE_DELAY to 0.05")
+        return
+
+    time_us = plot_results(traces, TARGET_BYTE)
+
+    fname = f'{OUTPUT_DIR}/hw{hw}_byte0x{TARGET_BYTE:02X}_N{len(traces)}.npz'
+    np.savez(fname, traces=traces, time_us=time_us,
+             target_byte=TARGET_BYTE, hw=hw)
+    print(f"[save] → {fname}")
+
+if __name__ == '__main__':
+    main()

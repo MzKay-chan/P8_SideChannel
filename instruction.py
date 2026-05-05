@@ -8,7 +8,7 @@ import numpy as np
 
 
 # ── Clock configuration ──────────────────────────────────────────────────────
-CLOCK_FREQ_HZ   = 16e6    # 16 MHz
+CLOCK_FREQ_HZ   = 1e6    # 1 MHz
 CLOCK_AMPLITUDE = 2.5     # V  → gives a 0–3.3 V swing on XTAL1
 CLOCK_OFFSET    = 2.5     # V
 
