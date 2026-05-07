@@ -33,7 +33,7 @@
 //  10  lds   — SRAM load (val pre-stored before trigger)
 //  11  mul   — hardware multiplier
 //
-#define TEST_VARIANT    1
+#define TEST_VARIANT    2
 
 // SRAM scratch byte for sts/lds tests (linker places it in RAM).
 volatile uint8_t scratch __attribute__((used));

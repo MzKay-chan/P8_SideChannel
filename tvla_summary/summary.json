@@ -1,0 +1,24 @@
+[
+  {
+    "name": "eor",
+    "n_traces": 2048,
+    "n_samples": 875,
+    "fixed_val": 255,
+    "leaky_samples": 5,
+    "leaky_cycles": [
+      -1,
+      58,
+      117
+    ],
+    "peak_t": 10.1358642578125,
+    "peak_t_sample": 0,
+    "peak_t_cycle": -1,
+    "peak_snr": 0.17890749871730804,
+    "peak_snr_cycle": 31,
+    "peak_hw_corr": 0.049789756536483765,
+    "peak_hw_cycle": 97,
+    "alpha": 0.0012867983896288134,
+    "beta": 4.501412860350685,
+    "r2": 0.002479018060955407
+  }
+]

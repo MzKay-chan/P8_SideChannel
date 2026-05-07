@@ -31,7 +31,7 @@ from scipy import stats
 # ── CONFIGURATION ────────────────────────────────────────────────────────────
 T_THRESHOLD          = 4.5                 # standard TVLA pass/fail threshold
 SAMPLE_RATE          = 100e6               # Hz  (100 MHz AD2 sample rate)
-CLOCK_FREQ           = 1e6                 # Hz  (1 MHz ATmega clock)
+CLOCK_FREQ           = 16e6                 # Hz  (1 MHz ATmega clock)
 SAMPLES_PER_CYCLE    = int(SAMPLE_RATE / CLOCK_FREQ)   # 100 samples per clock cycle
 
 # Sample-offset between the scope trigger edge and the first cycle of OP_ASM.
@@ -55,7 +55,7 @@ REQUIRED_FILES       = ["fixed_traces.npy", "random_traces.npy",
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 def time_axis(n_samples):
-    return np.arange(n_samples) / SAMPLE_RATE * 1e6
+    return np.arange(n_samples) / SAMPLE_RATE * 16e6 #Remeber to change this value when changing the clock frequency
 
 
 def cycle_boundaries(n_samples):

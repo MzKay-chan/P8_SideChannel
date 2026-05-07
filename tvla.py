@@ -7,7 +7,7 @@ from time import sleep
 from WF_SDK import device, scope, error
 
 # ── Configuration ─────────────────────────────────────────────────────────────
-CLOCK_FREQ_HZ    = 1e6       # Must match F_CPU in Arduino sketch
+CLOCK_FREQ_HZ    = 16e6       # Must match F_CPU in Arduino sketch
 CLOCK_AMPLITUDE  = 2.5       # V
 CLOCK_OFFSET     = 2.5       # V
 
@@ -17,7 +17,7 @@ FIXED_VAL        = 0xFF      # Fixed group input — must match Arduino sketch
 # Update this string whenever you reflash a new variant.
 # Captured traces go into tvla_traces_<TEST_NAME>/  so each instruction's
 # dataset is preserved separately and easy to compare later.
-TEST_NAME        = "mov"
+TEST_NAME        = "eor"
 
 N_TRACES         = 2048      # Traces per group — must match Arduino sketch (multiple of 256)
 HANDSHAKE_DIO_PIN = 2        # AD2 DIO → Arduino HANDSHAKE_PIN (pin 2): start signal + per-trace ACK
