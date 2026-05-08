@@ -186,7 +186,7 @@ def analyze_test(test_name):
 
     print(f"  fixed_traces  : {fixed_traces.shape}")
     print(f"  random_traces : {random_traces.shape}")
-    print(f"  random_vals   : {random_vals.shape}  unique={len(np.unique(random_vals))}/256")
+    print(f"  random_vals   : {random_vals.shape}")
     print(f"  fixed value   : 0x{fixed_val:02X}")
 
     # ── Step 1 — alignment ──
@@ -230,7 +230,7 @@ def analyze_test(test_name):
     print(f"  [snr] peak SNR={peak_snr:.4f} at cycle {peak_snr_cyc}")
 
     # ── Step 5 — HW correlation ──
-    hw_vals      = np.unpackbits(random_vals[:, None], axis=1).sum(axis=1).astype(np.float32)
+    hw_vals      = np.array([bin(v).count('1') for v in random_vals], dtype=np.float32)
     hw_corr      = hw_correlation(random_traces, hw_vals)
     peak_hw_corr = float(np.max(np.abs(hw_corr)))
     peak_hw_cyc  = int(sample_to_cycle(np.argmax(np.abs(hw_corr))))

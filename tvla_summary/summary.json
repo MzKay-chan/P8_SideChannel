@@ -1,24 +1,29 @@
 [
   {
-    "name": "eor",
+    "name": "eor-HW",
     "n_traces": 2048,
-    "n_samples": 875,
+    "n_samples": 933,
     "fixed_val": 255,
-    "leaky_samples": 5,
+    "leaky_samples": 12,
     "leaky_cycles": [
       -1,
+      0,
+      4,
       58,
-      117
+      59,
+      117,
+      118,
+      123
     ],
-    "peak_t": 10.1358642578125,
+    "peak_t": 11.116791725158691,
     "peak_t_sample": 0,
     "peak_t_cycle": -1,
-    "peak_snr": 0.17890749871730804,
-    "peak_snr_cycle": 31,
-    "peak_hw_corr": 0.049789756536483765,
-    "peak_hw_cycle": 97,
-    "alpha": 0.0012867983896288134,
-    "beta": 4.501412860350685,
-    "r2": 0.002479018060955407
+    "peak_snr": 0.2746604382991791,
+    "peak_snr_cycle": 129,
+    "peak_hw_corr": 0.06476501375436783,
+    "peak_hw_cycle": 54,
+    "alpha": -0.0007916609172940362,
+    "beta": 4.496497763242256,
+    "r2": 0.004194485408695492
   }
 ]

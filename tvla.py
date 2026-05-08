@@ -17,7 +17,7 @@ FIXED_VAL        = 0xFF      # Fixed group input — must match Arduino sketch
 # Update this string whenever you reflash a new variant.
 # Captured traces go into tvla_traces_<TEST_NAME>/  so each instruction's
 # dataset is preserved separately and easy to compare later.
-TEST_NAME        = "eor"
+TEST_NAME        = "eor-HW"
 
 N_TRACES         = 2048      # Traces per group — must match Arduino sketch (multiple of 256)
 HANDSHAKE_DIO_PIN = 2        # AD2 DIO → Arduino HANDSHAKE_PIN (pin 2): start signal + per-trace ACK
@@ -235,7 +235,25 @@ if __name__ == "__main__":
             print(f"  {i+1:>4}/{N_TRACES}  ({pct:.0f}%)   skipped so far: {skipped}")
 
         i += 1
+    # Mirror the Arduino's hw table on the Python side
+    hw_bytes = [[] for _ in range(9)]
+    for b in range(256):
+        hw = bin(b).count('1')
+        hw_bytes[hw].append(b)
 
+    traces_per_hw = N_TRACES // 9
+    hw_index = [0] * 9
+
+    random_vals = []
+    for i in range(N_TRACES):
+        hw = i // traces_per_hw
+        if hw > 8:
+            hw = 8
+        val = hw_bytes[hw][hw_index[hw] % len(hw_bytes[hw])]
+        hw_index[hw] += 1
+        random_vals.append(val)
+
+    random_vals = np.array(random_vals, dtype=np.uint8)
     print("─" * 60)
     print(f"Done: {len(fixed_traces)} pairs captured, {skipped} skipped")
 

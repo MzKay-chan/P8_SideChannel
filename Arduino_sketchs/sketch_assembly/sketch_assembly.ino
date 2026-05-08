@@ -12,7 +12,7 @@
 #define TRIGGER_BIT     PD3
 #define HANDSHAKE_PIN   2
 
-#define N_TRACES        2048   // multiple of 256 — each byte value seen N_TRACES/256 times
+#define N_TRACES        1800   // multiple of 256 — each byte value seen N_TRACES/256 times
 #define FIXED_VAL       0xFF
 #define DELAY_US        500    // settling time between traces
 
@@ -136,6 +136,17 @@ void run_test(uint8_t val) {
 static inline void wait_hs_high(void) { while (digitalRead(HANDSHAKE_PIN) == LOW)  { } }
 static inline void wait_hs_low (void) { while (digitalRead(HANDSHAKE_PIN) == HIGH) { } }
 
+// Generating a sequence of bytes for testing so that each HM is equally represented 
+uint8_t hw_bytes[9][70];
+uint8_t hw_counts[9] = {0};
+
+void precompute_hw_table() {
+    for (int b = 0; b < 256; b++) {
+        uint8_t hw = __builtin_popcount(b);
+        hw_bytes[hw][hw_counts[hw]++] = b;
+    }
+}
+
 void setup() {
     // Trigger pin: configure as output via DDR, start LOW
     TRIGGER_DDR  |=  (1 << TRIGGER_BIT);
@@ -157,8 +168,12 @@ void setup() {
 }
 
 void loop() {
-    for (int i = 0; i < N_TRACES; i++) {
+    precompute_hw_table();
+    
+    uint8_t hw_index[9] = {0}; // round robin index per hamming weight
+    int traces_per_hw = N_TRACES / 9; // 0-8 = 9 weights
 
+    for (int i = 0; i < N_TRACES; i++) {
         // --- Fixed trace ---
         wait_hs_high();
         run_test(FIXED_VAL);
@@ -166,7 +181,11 @@ void loop() {
         _delay_us(DELAY_US);
 
         // --- Random trace ---
-        uint8_t val = (uint8_t)(i & 0xFF);
+        uint8_t hw = i / traces_per_hw; // which hamming weight
+        if (hw > 8) hw = 8;
+        uint8_t val = hw_bytes[hw][hw_index[hw] % hw_counts[hw]];
+        hw_index[hw]++;
+
         wait_hs_high();
         run_test(val);
         wait_hs_low();
