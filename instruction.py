@@ -5,7 +5,10 @@ from time import sleep
 import threading
 import serial
 import numpy as np
-
+"""
+This script captures traces for a single instruction and input byte, saving them as .npz files. 
+Run this multiple times with different 
+"""
 
 # ── Clock configuration ──────────────────────────────────────────────────────
 CLOCK_FREQ_HZ   = 1e6    # 1 MHz
@@ -49,9 +52,9 @@ def clock_stop(dwf, hdwf):
 if __name__ == "__main__":
     counter = 0
 
-    print("Testing with (0x00)")
-    input_byte = 0
-    ser = serial.Serial('/dev/ttyACM0', baudrate=9600, timeout=1)
+    input_byte = input("Enter the byte value to test (e.g., 0x00): ")
+    print(f"Testing with {input_byte}...")
+    #ser = serial.Serial('/dev/ttyACM0', baudrate=9600, timeout=1)
 
 
     dwf = load_dwf()
@@ -61,7 +64,7 @@ if __name__ == "__main__":
     clock_start(dwf, hdwf)
     sleep(10)
 
-    while counter != 80:
+    while counter != 2000: #Set the amount of traces to capture
         counter +=1
 
         # Start oscilloscope
@@ -88,7 +91,7 @@ if __name__ == "__main__":
         t.start()
         sleep(0.1)
 
-        ser.write(str(input_byte).encode() + b'\n')
+        #ser.write(str(input_byte).encode() + b'\n')
 
         t.join(timeout=5)
         if t.is_alive():
@@ -99,13 +102,10 @@ if __name__ == "__main__":
         # Process & save 
         buffer = buffer_holder[0]
 
-        # Keep only the post-trigger half
-        trigger_idx = len(buffer) // 2
-        buffer = buffer[trigger_idx:]
 
         print(f"  samples captured: {len(buffer)}")
 
-        np.savez(f'instruction/trace{input_byte}-{counter}.npz',
+        np.savez(f'instruction/trace{test_byte}-{counter}.npz',
                     buffer=buffer,
                     password=np.frombuffer(str(input_byte).encode(), dtype=np.uint8))
 

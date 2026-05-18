@@ -10,10 +10,10 @@
 #define TRIGGER_PORT    PORTD
 #define TRIGGER_DDR     DDRD
 #define TRIGGER_BIT     PD3
-#define HANDSHAKE_PIN   2
+#define HANDSHAKE_PIN   PD2
 
-#define N_TRACES        1800   // multiple of 256 — each byte value seen N_TRACES/256 times
-#define FIXED_VAL       0xFF
+#define N_TRACES        4096   // multiple of 256 — each byte value seen N_TRACES/256 times
+#define FIXED_VAL       0x00
 #define DELAY_US        500    // settling time between traces
 
 // ── Test variant selection ───────────────────────────────────────────────────
@@ -33,7 +33,7 @@
 //  10  lds   — SRAM load (val pre-stored before trigger)
 //  11  mul   — hardware multiplier
 //
-#define TEST_VARIANT    2
+#define TEST_VARIANT    6
 
 // SRAM scratch byte for sts/lds tests (linker places it in RAM).
 volatile uint8_t scratch __attribute__((used));
@@ -76,7 +76,7 @@ volatile uint8_t scratch __attribute__((used));
   #define CLOBBERS  , "r16"
 #elif TEST_VARIANT == 6
   #define TEST_NAME "sub"
-  #define PRE_ASM   "ldi  r16, 0x55       \n\t"
+  #define PRE_ASM   "ldi  r16, 0xFF       \n\t"
   #define OP_ASM    "sub  r16, %[v]       \n\t"
   #define CLOBBERS  , "r16"
 #elif TEST_VARIANT == 7
@@ -155,6 +155,10 @@ void setup() {
     pinMode(HANDSHAKE_PIN, INPUT);
     pinMode(LED_BUILTIN, OUTPUT);
 
+    //precompute_hw_table();
+
+     
+
     // Blink while waiting — start Python during this time
     while (digitalRead(HANDSHAKE_PIN) == LOW) {
         digitalWrite(LED_BUILTIN, HIGH); delay(200);
@@ -168,8 +172,8 @@ void setup() {
 }
 
 void loop() {
-    precompute_hw_table();
-    
+  
+    uint8_t val = 0xFF; // 0xFF to maximise switching activity  
     uint8_t hw_index[9] = {0}; // round robin index per hamming weight
     int traces_per_hw = N_TRACES / 9; // 0-8 = 9 weights
 
@@ -181,10 +185,10 @@ void loop() {
         _delay_us(DELAY_US);
 
         // --- Random trace ---
-        uint8_t hw = i / traces_per_hw; // which hamming weight
-        if (hw > 8) hw = 8;
-        uint8_t val = hw_bytes[hw][hw_index[hw] % hw_counts[hw]];
-        hw_index[hw]++;
+        //uint8_t hw = i / traces_per_hw; // which hamming weight
+        //if (hw > 8) hw = 8;
+        //uint8_t val = hw_bytes[hw][hw_index[hw] % hw_counts[hw]];
+        //hw_index[hw]++;
 
         wait_hs_high();
         run_test(val);

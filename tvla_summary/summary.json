@@ -1,29 +1,31 @@
 [
   {
-    "name": "eor-HW",
-    "n_traces": 2048,
-    "n_samples": 933,
-    "fixed_val": 255,
-    "leaky_samples": 12,
+    "name": "sub-1mhz-ffvs00",
+    "n_traces": 4096,
+    "n_samples": 1017,
+    "fixed_val": 0,
+    "leaky_samples": 144,
     "leaky_cycles": [
       -1,
       0,
+      1,
+      2,
+      3,
       4,
-      58,
-      59,
-      117,
-      118,
-      123
+      5,
+      6,
+      7,
+      8
     ],
-    "peak_t": 11.116791725158691,
-    "peak_t_sample": 0,
-    "peak_t_cycle": -1,
-    "peak_snr": 0.2746604382991791,
-    "peak_snr_cycle": 129,
-    "peak_hw_corr": 0.06476501375436783,
-    "peak_hw_cycle": 54,
-    "alpha": -0.0007916609172940362,
-    "beta": 4.496497763242256,
-    "r2": 0.004194485408695492
+    "peak_t": 46.316463470458984,
+    "peak_t_sample": 101,
+    "peak_t_cycle": 0,
+    "peak_snr": NaN,
+    "peak_snr_cycle": -1,
+    "peak_hw_corr": 0.0,
+    "peak_hw_cycle": -1,
+    "alpha": 0.28159348097688125,
+    "beta": 2.2527478478150433,
+    "r2": -2.1946749972912016e-08
   }
 ]

@@ -31,7 +31,7 @@ from scipy import stats
 # ── CONFIGURATION ────────────────────────────────────────────────────────────
 T_THRESHOLD          = 4.5                 # standard TVLA pass/fail threshold
 SAMPLE_RATE          = 100e6               # Hz  (100 MHz AD2 sample rate)
-CLOCK_FREQ           = 16e6                 # Hz  (1 MHz ATmega clock)
+CLOCK_FREQ           = 1e6                 # Hz  (1 MHz ATmega clock)
 SAMPLES_PER_CYCLE    = int(SAMPLE_RATE / CLOCK_FREQ)   # 100 samples per clock cycle
 
 # Sample-offset between the scope trigger edge and the first cycle of OP_ASM.
@@ -263,7 +263,7 @@ def analyze_test(test_name):
     axes[1].plot(t_axis, mean_random, color='#185FA5', lw=0.9, label='Random')
     axes[1].set_ylabel("Voltage (V)")
     axes[1].legend(loc='upper right')
-    axes[1].set_title("Random group — mean of all random traces")
+    axes[1].set_title("Random group — This test uses 0xFF for all random traces")
     axes[2].plot(t_axis, difference,  color='#0F6E56', lw=0.9, label='Fixed − Random')
     axes[2].axhline(0, color='black', lw=0.5, linestyle='--')
     axes[2].set_ylabel("ΔVoltage (V)")

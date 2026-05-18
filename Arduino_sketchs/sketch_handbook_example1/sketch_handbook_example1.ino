@@ -1,7 +1,7 @@
 // Trigger is Pin 2
 int triggerPin = 3;
 
-String known_passwordstr = String("eeeeeeeeeee");
+String known_passwordstr = String("ilovecheese");
 
 
 // the setup routine runs once when you press reset:

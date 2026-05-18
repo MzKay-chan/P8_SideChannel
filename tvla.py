@@ -7,19 +7,19 @@ from time import sleep
 from WF_SDK import device, scope, error
 
 # ── Configuration ─────────────────────────────────────────────────────────────
-CLOCK_FREQ_HZ    = 16e6       # Must match F_CPU in Arduino sketch
+CLOCK_FREQ_HZ    = 1e6       # Must match F_CPU in Arduino sketch
 CLOCK_AMPLITUDE  = 2.5       # V
 CLOCK_OFFSET     = 2.5       # V
 
-FIXED_VAL        = 0xFF      # Fixed group input — must match Arduino sketch
+FIXED_VAL        = 0x00      # Fixed group input — must match Arduino sketch
 
 # ── TEST_NAME must match the TEST_VARIANT compiled into the Arduino sketch ───
 # Update this string whenever you reflash a new variant.
 # Captured traces go into tvla_traces_<TEST_NAME>/  so each instruction's
 # dataset is preserved separately and easy to compare later.
-TEST_NAME        = "eor-HW"
+TEST_NAME        = "sub-1mhz-ffvs00"
 
-N_TRACES         = 2048      # Traces per group — must match Arduino sketch (multiple of 256)
+N_TRACES         = 4096      # Traces per group — must match Arduino sketch (multiple of 256)
 HANDSHAKE_DIO_PIN = 2        # AD2 DIO → Arduino HANDSHAKE_PIN (pin 2): start signal + per-trace ACK
 
 SAVE_DIR         = f"tvla_traces_{TEST_NAME}"
@@ -151,11 +151,13 @@ if __name__ == "__main__":
     os.makedirs(SAVE_DIR, exist_ok=True)
 
     # Pre-generate the deterministic random-value sequence the Arduino will use
-    print(f"[seq] Pre-generating {N_TRACES} values (val = i & 0xFF)...")
-    random_vals = generate_random_sequence(N_TRACES)
-    print(f"[seq] First 8 values : {[hex(v) for v in random_vals[:8]]}")
-    print(f"[seq] Unique values  : {len(np.unique(random_vals))}/256")
-    print(f"[seq] Per-value count: {N_TRACES // 256}  (remainder {N_TRACES % 256})")
+    #print(f"[seq] Pre-generating {N_TRACES} values (val = i & 0xFF)...")
+    print("This test uses a fixed value (0xFF) for the 'random' group, so no random sequence is generated.")
+    random_vals = 0xFF #This is for the 
+    # random_vals = generate_random_sequence(N_TRACES)
+    #print(f"[seq] First 8 values : {[hex(v) for v in random_vals[:8]]}")
+    #print(f"[seq] Unique values  : {len(np.unique(random_vals))}/256")
+    #print(f"[seq] Per-value count: {N_TRACES // 256}  (remainder {N_TRACES % 256})")
 
     # Open AD2
     dwf         = load_dwf()
@@ -165,7 +167,7 @@ if __name__ == "__main__":
     # Enable HANDSHAKE pin as output, driven LOW
     dio_init(dwf, hdwf, [HANDSHAKE_DIO_PIN])
     print(f"[dio] DIO{HANDSHAKE_DIO_PIN}=HANDSHAKE LOW — Arduino is waiting (LED blinking)")
-
+    dio_set(dwf, hdwf, HANDSHAKE_DIO_PIN, 0) # Redundant with dio_init() but makes the intent clear
     # Start clock before Arduino needs it
     clock_start(dwf, hdwf)
     sleep(1)   # Let clock stabilise
@@ -246,12 +248,16 @@ if __name__ == "__main__":
 
     random_vals = []
     for i in range(N_TRACES):
-        hw = i // traces_per_hw
-        if hw > 8:
-            hw = 8
-        val = hw_bytes[hw][hw_index[hw] % len(hw_bytes[hw])]
-        hw_index[hw] += 1
-        random_vals.append(val)
+        random_vals.append(0xFF) #This is for the fixed value test
+
+    #random_vals = []
+    #for i in range(N_TRACES):
+    #    hw = i // traces_per_hw
+    #    if hw > 8:
+    #        hw = 8
+    #    val = hw_bytes[hw][hw_index[hw] % len(hw_bytes[hw])]
+    #    hw_index[hw] += 1
+    #    random_vals.append(val)
 
     random_vals = np.array(random_vals, dtype=np.uint8)
     print("─" * 60)
